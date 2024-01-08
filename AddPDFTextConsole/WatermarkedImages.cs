@@ -37,6 +37,7 @@ namespace AddPDFTextConsole
             Document doc = new Document(pdfDoc);
 
             Image image = GetWatermarkedImage(pdfDoc, new Image(ImageDataFactory.Create(watermarkFile)), "Test");
+
             doc.Add(image);
 
             doc.Close();
