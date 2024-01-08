@@ -1,62 +1,61 @@
-﻿using iText.IO.Image;
+﻿using iText.IO.Font.Constants;
 using iText.Kernel.Colors;
+using iText.Kernel.Font;
 using iText.Kernel.Geom;
 using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Xobject;
-using iText.Layout;
-using iText.Layout.Element;
-using iText.Layout.Properties;
-using System;
-using System.IO;
+using iText.Kernel.Pdf.Canvas;
+using iText.Kernel.Pdf.Extgstate;
 
 namespace AddPDFTextConsole
 {
-    /*
-     * Code from:
-     * https://kb.itextpdf.com/itext/adding-watermarks-to-images
-     */
     internal class WatermarkedImages
     {
-        private static readonly string baseFile = @"C:\Users\AndreaMollo\Desktop\testPDF\origin.pdf";
-
-        private static readonly string watermarkFile = @"C:\Users\AndreaMollo\Desktop\testPDF\watermark.jpg";
+        private static readonly string inputFile = @"C:\Users\AndreaMollo\Desktop\testPDF\input.pdf";
 
         private static readonly string outputFile = @"C:\Users\AndreaMollo\Desktop\testPDF\output.pdf";
 
         static void Main(string[] args)
         {
-            FileInfo file = new FileInfo(outputFile);
-            file.Directory.Create();
-
-            new WatermarkedImages().ManipulatePdf(outputFile);
+            AddWatermarkToPdf();            
         }
 
-        protected void ManipulatePdf(string outputFile)
+        private static void AddWatermarkToPdf()
         {
-            PdfDocument pdfDoc = new PdfDocument(new PdfWriter(outputFile));
-            Document doc = new Document(pdfDoc);
+            using (var pdfReader = new PdfReader(inputFile))
+            {
+                using (var pdfWriter = new PdfWriter(outputFile))
+                {
+                    using (var pdfDocument = new PdfDocument(pdfReader, pdfWriter))
+                    {
+                        // Create a text watermark
+                        var watermarkText = "Confidential";
+                        var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+                        var color = ColorConstants.GRAY;
+                        var opacity = 0.5f;
 
-            Image image = GetWatermarkedImage(pdfDoc, new Image(ImageDataFactory.Create(watermarkFile)), "Test");
+                        // Add the watermark to each page
+                        for (int i = 1; i <= pdfDocument.GetNumberOfPages(); i++)
+                        {
+                            var page = pdfDocument.GetPage(i);
+                            var canvas = new PdfCanvas(page);
+                            var pageSize = page.GetPageSize();
+                            var x = pageSize.GetWidth() / 2;
+                            var y = pageSize.GetHeight() / 2;
 
-            doc.Add(image);
-
-            doc.Close();
-        }
-
-        private static Image GetWatermarkedImage(PdfDocument pdfDoc, Image image, string watermark)
-        {
-            float width = image.GetImageScaledWidth();
-            float height = image.GetImageScaledHeight();
-
-            PdfFormXObject template = new PdfFormXObject(new Rectangle(width, height));
-
-            new Canvas(template, pdfDoc)
-                .Add(image)
-                .SetFontColor(DeviceGray.BLACK)
-                .ShowTextAligned(watermark, width / 2, width / 2, TextAlignment.CENTER, (float)Math.PI / 6)
-                .Close();
-
-            return new Image(template);
+                            var transform = new AffineTransform(1, 0, 0, 1, x, y); // Create an AffineTransform
+                            canvas.SaveState()
+                                .SetExtGState(new PdfExtGState().SetFillOpacity(opacity))
+                                .BeginText()
+                                .SetFontAndSize(font, 40)
+                                .SetColor(color, true)
+                                .SetTextMatrix(transform) // Use the AffineTransform
+                                .ShowText(watermarkText)
+                                .EndText()
+                                .RestoreState();
+                        }
+                    }
+                }
+            }
         }
     }
 }
